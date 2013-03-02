@@ -112,6 +112,8 @@ public class Emailer {
 			
 			Transport.send( theMessage );
 			
+			spawnMessage();
+			
 			ret = true;
 		} catch (MessagingException e) {
 			log.error("Cannot send email. ",e);
