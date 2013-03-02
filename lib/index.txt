@@ -1,0 +1,9 @@
+jsch-0.1.49.jar:
+Java SSH implementation library.
+Used by:
+brootils.ssh
+
+log4j-1.2.16.jar:
+Apache Log4j Library.
+Used by:
+everything.
