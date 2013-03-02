@@ -1,3 +1,8 @@
+activation.jar
+Required mail library.
+Used by:
+brootils.mail.*
+
 jsch-0.1.49.jar:
 Java SSH implementation library.
 Used by:
@@ -7,3 +12,8 @@ log4j-1.2.16.jar:
 Apache Log4j Library.
 Used by:
 everything.
+
+mail.jar:
+Required mail library.
+Used by:
+brootils.mail.*
