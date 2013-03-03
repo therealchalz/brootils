@@ -11,11 +11,11 @@ public class StaticMailer {
 		
 	}
 	
-	public synchronized void configureSmtp(String host, String user, String password) {
+	public static synchronized void configureSmtp(String host, String user, String password) {
 		emailer.configureSmtp(host, user, password);
 	}
 	
-	public synchronized boolean sendEmail(String to, String from, String subject, String body) {
+	public static synchronized boolean sendEmail(String to, String from, String subject, String body) {
 		return emailer.sendEmailSimple(to, from, subject, body);
 	}
 }
