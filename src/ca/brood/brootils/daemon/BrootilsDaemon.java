@@ -26,8 +26,12 @@ import org.apache.commons.daemon.DaemonContext;
 import org.apache.commons.daemon.DaemonInitException;
 import org.apache.log4j.Logger;
 
+import ca.brood.brootils.ssh.TunnelKeepaliveThread;
+
 public class BrootilsDaemon implements Daemon {
 	private static BrootilsDaemon brootilsDaemon;
+	
+	private TunnelKeepaliveThread tunnelThread;
 	private Logger log;
 	
 	static {
@@ -36,14 +40,16 @@ public class BrootilsDaemon implements Daemon {
 	
 	public BrootilsDaemon() {
 		log = Logger.getLogger(BrootilsDaemon.class);
+		tunnelThread = new TunnelKeepaliveThread();
 	}
 	
 	private void brootilsStart() {
 		log.info("BrootilsDaemon is starting...");
+		tunnelThread.start();
 	}
 	private void brootilsStop() {
 		log.info("BrootilsDaemon is stopping...");
-		
+		tunnelThread.stop();
 		log.info("BrootilsDaemon is done.");
 	}
 	
@@ -58,6 +64,7 @@ public class BrootilsDaemon implements Daemon {
          * called as the root user.  After it returns, then start is called
          * as the regular user.
          */
+    	//TODO: get an xml config file from the command line
     	log.info("Linux daemon received init");
     }
 

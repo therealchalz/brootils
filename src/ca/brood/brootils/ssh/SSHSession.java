@@ -140,6 +140,7 @@ public class SSHSession {
 		session.setPassword(this.password);
 		
 		session.setTimeout(timeoutSeconds*1000);
+		//TODO: review this (StrictHostKeyChecking)
 		session.setConfig("StrictHostKeyChecking", "no");
 		return session;
 	}
