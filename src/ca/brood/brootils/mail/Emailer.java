@@ -18,6 +18,7 @@
  * Contributors:
  *     Charles Hache <chache@brood.ca> - initial API and implementation
  ******************************************************************************/
+//Uses code taken from various blogs and tutorials online.
 package ca.brood.brootils.mail;
 
 import java.util.Date;
