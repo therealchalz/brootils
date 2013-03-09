@@ -302,7 +302,6 @@ public class SSHSession {
 	}
 	
 	private boolean sendFile(InputStream in, OutputStream out, String localFileName, String remoteFileName) throws IOException {
-		boolean ret = false;
 		
 		if(checkAck(in)!=0){
 			log.error("Can't start because didn't receive ack");

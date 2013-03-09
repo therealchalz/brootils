@@ -33,6 +33,7 @@ public class BrootilsDaemon implements Daemon {
 	
 	private TunnelKeepaliveThread tunnelThread;
 	private Logger log;
+	private String configFile;
 	
 	static {
 		brootilsDaemon = new BrootilsDaemon();
@@ -41,6 +42,7 @@ public class BrootilsDaemon implements Daemon {
 	public BrootilsDaemon() {
 		log = Logger.getLogger(BrootilsDaemon.class);
 		tunnelThread = new TunnelKeepaliveThread();
+		configFile = "brootils.xml";
 	}
 	
 	private void brootilsStart() {
@@ -59,13 +61,16 @@ public class BrootilsDaemon implements Daemon {
     }
 
     @Override
-    public void init(DaemonContext arg0) throws DaemonInitException, Exception {
+    public void init(DaemonContext arg) throws DaemonInitException, Exception {
         /* I think if jsvc is configured correctly, then this method is 
          * called as the root user.  After it returns, then start is called
          * as the regular user.
          */
     	//TODO: get an xml config file from the command line
     	log.info("Linux daemon received init");
+    	for (String s : arg.getArguments()) {
+    		log.debug("Got argument: "+s);
+    	}
     }
 
     @Override

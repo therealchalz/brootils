@@ -20,12 +20,12 @@
  ******************************************************************************/
 package ca.brood.brootils.xml;
 
-public class XmlErrorCallback {
-	private boolean isConfigValid = true;
-	public synchronized void setConfigValid(boolean isValid) {
-		isConfigValid = isValid;
-	}
-	public synchronized boolean isConfigValid() {
-		return isConfigValid;
-	}
+import org.w3c.dom.Node;
+
+public interface XMLConfigurable {
+	/** Configures this class based on xml element rootNode.
+	 * @param rootNode the root node of this class' configuration
+	 * @return true on success, false on fatal error (when execution of the program should fail).
+	 */
+	public boolean configure(Node rootNode);
 }

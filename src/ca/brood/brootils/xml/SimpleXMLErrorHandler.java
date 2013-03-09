@@ -20,12 +20,34 @@
  ******************************************************************************/
 package ca.brood.brootils.xml;
 
-import org.w3c.dom.Node;
+import org.apache.log4j.Logger;
+import org.xml.sax.*;
 
-public interface XmlConfigurable {
-	/** Configures this class based on xml element rootNode.
-	 * @param rootNode the root node of this class' configuration
-	 * @return true on success, false on fatal error (when execution of the program should fail).
-	 */
-	public boolean configure(Node rootNode);
+public class SimpleXMLErrorHandler implements ErrorHandler {
+	private Logger log;
+	private XMLErrorCallback ec;
+	public SimpleXMLErrorHandler (XMLErrorCallback ec) {
+		this.log = null;
+		this.ec = ec;
+	}
+	public SimpleXMLErrorHandler (Logger log, XMLErrorCallback ec) {
+		this.log = log;
+		this.ec = ec;
+	}
+    public void warning(SAXParseException e) throws SAXException {
+    	if (log != null)
+    		log.warn(e.getMessage());
+    }
+
+    public void error(SAXParseException e) throws SAXException {
+    	if (log != null)
+    		log.error(e.getMessage());
+    	ec.setConfigValid(false);
+    }
+
+    public void fatalError(SAXParseException e) throws SAXException {
+    	if (log != null)
+    		log.fatal(e.getMessage());
+    	ec.setConfigValid(false);
+    }
 }
