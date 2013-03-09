@@ -20,11 +20,19 @@
  ******************************************************************************/
 package ca.brood.brootils.ssh;
 
-class PortForward {
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+import ca.brood.brootils.xml.XMLConfigurable;
+
+class PortForward implements XMLConfigurable {
 	int localPort;
 	String host;
 	int remotePort;
 	boolean remoteForward;
+	public PortForward() {
+		this(Integer.MAX_VALUE, "", Integer.MAX_VALUE, false);
+	}
 	public PortForward(int localPort, String host, int remotePort, boolean remoteForward) {
 		this.localPort=localPort;
 		this.host = host;
@@ -32,10 +40,55 @@ class PortForward {
 		this.remoteForward = remoteForward;
 	}
 	public String toString() {
+		if (host.equals("") || localPort == Integer.MAX_VALUE || remotePort == Integer.MAX_VALUE) {
+			return "PortForward not configured";
+		}
 		if (remoteForward) {
 			return "R:"+remotePort+":"+host+":"+localPort;
 		} else {
 			return "L:"+localPort+":"+host+":"+remotePort;
 		}
+	}
+	@Override
+	public boolean configure(Node rootNode) {
+		NodeList elements = rootNode.getChildNodes();
+		
+		if ("L".equalsIgnoreCase(rootNode.getAttributes().item(0).getTextContent())||
+				"local".equalsIgnoreCase(rootNode.getAttributes().item(0).getTextContent())) {
+			this.remoteForward = false;
+		}
+		if ("R".equalsIgnoreCase(rootNode.getAttributes().item(0).getTextContent())||
+				"remote".equalsIgnoreCase(rootNode.getAttributes().item(0).getTextContent())) {
+			this.remoteForward = true;
+		}
+		
+		for (int i=0; i<elements.getLength(); i++) {
+			Node element = elements.item(i);
+			
+			if (("#text".equalsIgnoreCase(element.getNodeName()))||
+					("#comment".equalsIgnoreCase(element.getNodeName())))	{
+				continue;
+			} else if ("localPort".equalsIgnoreCase(element.getNodeName())) {
+				try {
+					localPort = Integer.parseInt(element.getFirstChild().getNodeValue());
+				} catch (Exception e) {
+					return false;
+				}
+			} else if ("host".equalsIgnoreCase(element.getNodeName())) {
+				host = element.getFirstChild().getNodeValue(); 
+			} else if ("remotePort".equalsIgnoreCase(element.getNodeName())) {
+				try {
+					remotePort = Integer.parseInt(element.getFirstChild().getNodeValue());
+				} catch (Exception e) {
+					return false;
+				} 
+			}
+		}
+		
+		if (host.equals("") || localPort == Integer.MAX_VALUE || remotePort == Integer.MAX_VALUE) {
+			return false;
+		}
+		
+		return true;
 	}
 }

@@ -25,10 +25,15 @@ import org.apache.commons.daemon.Daemon;
 import org.apache.commons.daemon.DaemonContext;
 import org.apache.commons.daemon.DaemonInitException;
 import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import ca.brood.brootils.ssh.TunnelKeepaliveThread;
+import ca.brood.brootils.xml.XMLConfigurable;
+import ca.brood.brootils.xml.XMLFileLoader;
 
-public class BrootilsDaemon implements Daemon {
+public class BrootilsDaemon implements Daemon, XMLConfigurable {
 	private static BrootilsDaemon brootilsDaemon;
 	
 	private TunnelKeepaliveThread tunnelThread;
@@ -40,6 +45,7 @@ public class BrootilsDaemon implements Daemon {
 	}
 	
 	public BrootilsDaemon() {
+		PropertyConfigurator.configure("logger.config");
 		log = Logger.getLogger(BrootilsDaemon.class);
 		tunnelThread = new TunnelKeepaliveThread();
 		configFile = "brootils.xml";
@@ -47,8 +53,32 @@ public class BrootilsDaemon implements Daemon {
 	
 	private void brootilsStart() {
 		log.info("BrootilsDaemon is starting...");
-		tunnelThread.start();
+		
+		XMLFileLoader xmlLoader = new XMLFileLoader(configFile, this);
+		
+		boolean success = false;
+		try {
+			success = xmlLoader.load();
+		} catch (Exception e) {
+			log.fatal("Exception while loading config file: ", e);
+		}
+		
+		if (success) {
+			tunnelThread.start();
+		}
 	}
+	
+	public static void main(String[] args) {
+		BrootilsDaemon.windowsService(new String[0]);
+		try {
+			Thread.sleep(30000);
+		} catch (InterruptedException e) {
+		}
+		String[] stop = new String[1];
+		stop[0] = "stop";
+		BrootilsDaemon.windowsService(stop);
+	}
+	
 	private void brootilsStop() {
 		log.info("BrootilsDaemon is stopping...");
 		tunnelThread.stop();
@@ -107,5 +137,19 @@ public class BrootilsDaemon implements Daemon {
         	brootilsDaemon.log.error("Unrecognized service option: "+cmd);
         }
     }
+
+	@Override
+	public boolean configure(Node rootNode) {
+		NodeList nodes = rootNode.getOwnerDocument().getElementsByTagName("tunneller");
+		
+		if (nodes.getLength() == 0) {
+			log.fatal("No tunneller configured");
+			return false;
+		} else if (nodes.getLength() > 1) {
+			log.warn("Warning: too many tunnellers are configured.  Only configuring the first one.");
+		}
+		
+		return this.tunnelThread.configure(nodes.item(0));
+	}
 
 }

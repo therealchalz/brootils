@@ -24,8 +24,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 import org.apache.log4j.Logger;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
-public class TunnelKeepaliveThread implements Runnable {
+import ca.brood.brootils.xml.XMLConfigurable;
+
+public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 	private int pollingInterval;
 	private Logger log;
 	private Collection<PortForward> portForwards;
@@ -110,6 +114,8 @@ public class TunnelKeepaliveThread implements Runnable {
 			} catch (InterruptedException e) { }
 		}
 		
+		ssh.close();
+		
 		log.info("Thread exiting");
 	}
 	
@@ -121,5 +127,72 @@ public class TunnelKeepaliveThread implements Runnable {
 		setRunning(false);
 		myThread.interrupt();
 		myThread = new Thread(this);
+	}
+
+	@Override
+	public boolean configure(Node rootNode) {
+		
+		String user = "";
+		String password = "";
+		String host = "";
+		String keyfile = "";
+		int port = 22;
+		
+		NodeList elements = rootNode.getChildNodes();
+		for (int i=0; i<elements.getLength(); i++) {
+			Node element = elements.item(i);
+			
+			if (("#text".equalsIgnoreCase(element.getNodeName()))||
+					("#comment".equalsIgnoreCase(element.getNodeName())))	{
+				continue;
+			} else if ("user".equalsIgnoreCase(element.getNodeName())) {
+				user = element.getFirstChild().getNodeValue();
+			} else if ("host".equalsIgnoreCase(element.getNodeName())) {
+				host = element.getFirstChild().getNodeValue(); 
+			} else if ("password".equalsIgnoreCase(element.getNodeName())) {
+				password = element.getFirstChild().getNodeValue(); 
+			} else if ("keyfile".equalsIgnoreCase(element.getNodeName())) {
+				keyfile = element.getFirstChild().getNodeValue(); 
+			} else if ("port".equalsIgnoreCase(element.getNodeName())) {
+				try {
+					port = Integer.parseInt(element.getFirstChild().getNodeValue());
+				} catch (Exception e) {
+					log.warn("Invalid port number specified: "+element.getFirstChild().getNodeValue()+". Using default of 22.");
+				}
+			} else if ("forward".equalsIgnoreCase(element.getNodeName())) {
+				PortForward f = new PortForward();
+				if (f.configure(element)) {
+					portForwards.add(f);
+				}
+			} else {
+				log.warn("Got unexpected node in config: "+element.getNodeName());
+			}			
+		}
+
+		if (password.equals("")) {
+			log.fatal("No password configured.  Keyfile auth isn't supported yet...");
+			return false;
+		}
+		if (user.equals("")) {
+			log.fatal("No user configured.");
+			return false;
+		}
+		if (host.equals("")) {
+			log.fatal("No host configured.");
+			return false;
+		}
+		if (portForwards.size() == 0) {
+			log.fatal("No port forwards configured.");
+			return false;
+		}
+		
+		this.configure(host, port, user, password);
+		
+		for (PortForward f : portForwards) {
+			log.info("Adding forward: "+f);
+			ssh.forwardPort(f);
+		}
+		
+		return true;
 	}
 }
