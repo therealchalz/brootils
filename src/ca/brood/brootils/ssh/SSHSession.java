@@ -66,6 +66,7 @@ public class SSHSession {
 	public void close() {
 		if (tunnelSession != null) {
 			tunnelSession.disconnect();
+			tunnelSession = null;
 		}
 	}
 	
@@ -76,30 +77,22 @@ public class SSHSession {
 		this.port = port;
 	}
 	
-	public boolean forwardPort(PortForward forward) {
-		boolean ret = false;
-		try {
-			Session ts = getTunnelSession();
-			
-			if (forward.remoteForward) {
-				ts.setPortForwardingR(forward.remotePort, forward.host, forward.localPort);
-			} else {
-				ts.setPortForwardingL(forward.localPort, forward.host, forward.remotePort);
-			}
-			
-			ret = true;
-		} catch (Exception e) {
-			log.error("Error setting up tunnel", e);
+	public void forwardPort(PortForward forward) throws Exception {
+		Session ts = getTunnelSession();
+		
+		if (forward.remoteForward) {
+			ts.setPortForwardingR(forward.remotePort, forward.host, forward.localPort);
+		} else {
+			ts.setPortForwardingL(forward.localPort, forward.host, forward.remotePort);
 		}
-		return ret;
 	}
 	
-	public boolean localForward(int localPort, String remoteHost, int remotePort) {
-		return forwardPort(new PortForward(localPort, remoteHost, remotePort, false));
+	public void localForward(int localPort, String remoteHost, int remotePort) throws Exception {
+		forwardPort(new PortForward(localPort, remoteHost, remotePort, false));
 	}
 	
-	public boolean remoteForward(int remotePort, String localHost, int localPort) {
-		return forwardPort(new PortForward(localPort, localHost, remotePort, true));
+	public void remoteForward(int remotePort, String localHost, int localPort) throws Exception {
+		forwardPort(new PortForward(localPort, localHost, remotePort, true));
 	}
 	
 	public boolean scpFileFromRemote (String remoteFile, String localFile) {

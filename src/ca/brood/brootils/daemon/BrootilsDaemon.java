@@ -70,10 +70,15 @@ public class BrootilsDaemon implements Daemon, XMLConfigurable {
 	
 	public static void main(String[] args) {
 		BrootilsDaemon.windowsService(new String[0]);
+
 		try {
-			Thread.sleep(30000);
+			Thread.sleep(120000);
 		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
+		
+		//To stop, uncomment this:
 		String[] stop = new String[1];
 		stop[0] = "stop";
 		BrootilsDaemon.windowsService(stop);
