@@ -63,9 +63,10 @@ public class SSHSession {
 		return tunnelSession.isConnected();
 	}
 	
-	public void close() {
+	public synchronized void close() {
 		if (tunnelSession != null) {
 			tunnelSession.disconnect();
+			tunnelSession = null;
 		}
 	}
 	
@@ -76,7 +77,7 @@ public class SSHSession {
 		this.port = port;
 	}
 	
-	public boolean forwardPort(PortForward forward) {
+	public synchronized boolean forwardPort(PortForward forward) {
 		boolean ret = false;
 		try {
 			Session ts = getTunnelSession();
@@ -261,7 +262,7 @@ public class SSHSession {
 		return false;
 	}
 
-	private boolean scpFile(String remoteFile, String localFile, boolean toRemote) {
+	private synchronized boolean scpFile(String remoteFile, String localFile, boolean toRemote) {
 		Session session = null;
 		boolean ret = false;
 		
