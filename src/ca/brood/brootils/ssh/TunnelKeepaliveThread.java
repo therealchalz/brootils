@@ -37,15 +37,24 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 	private boolean keepRunning;
 	private Object runningLock;
 	private Thread myThread;
+	private boolean loggedError;
+	
+	//Connection parameters
+	private String user = "";
+	private String password = "";
+	private String host = "";
+	private String keyfile = "";
+	private int port = 22;
 	
 	public TunnelKeepaliveThread() {
 		log = Logger.getLogger(TunnelKeepaliveThread.class);
 		keepRunning = true;
-		ssh = new SSHSession();
+		ssh = null;
 		runningLock = new Object();
 		pollingInterval = 10000;	//10 seconds
 		portForwards = new ArrayList<PortForward>();
 		myThread = new Thread(this);
+		loggedError = false;
 	}
 	
 	public void configure(String host, int port, String user, String password) {
@@ -56,8 +65,10 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 	public boolean addLocalForward(int localPort, String host, int remotePort) {
 		PortForward toAdd = new PortForward(localPort, host, remotePort, false); 
 		portForwards.add(toAdd);
-		if (!ssh.forwardPort(toAdd)) {
-			log.error("Failed for forward port: "+toAdd);
+		try {
+			ssh.forwardPort(toAdd);
+		} catch (Exception e) {
+			log.error("Failed to forward port: "+toAdd);
 			return false;
 		}
 		return true;
@@ -65,9 +76,10 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 	
 	public boolean addRemoteForward(int remotePort, String host, int localPort) {
 		PortForward toAdd = new PortForward(localPort, host, remotePort, true); 
-		portForwards.add(toAdd);
-		if (!ssh.forwardPort(toAdd)) {
-			log.error("Failed for forward port: "+toAdd);
+		try {
+			ssh.forwardPort(toAdd);
+		} catch (Exception e) {
+			log.error("Failed to forward port: "+toAdd);
 			return false;
 		}
 		return true;
@@ -86,14 +98,34 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 	}
 	
 	private boolean respawn() {
-		boolean ret = true;
-		ssh.close();
-		for (PortForward p : this.portForwards) {
-			if (!ssh.forwardPort(p)) {
-				log.warn("Failed to forward port: "+p);
-				ret = false;
+		boolean ret = false;
+		if (ssh != null)
+			ssh.close();
+		
+		try {
+			ssh = new SSHSession();
+			
+			ssh.configure(host, port, user, password);
+			
+			ret = true;
+			for (PortForward p : this.portForwards) {
+				ssh.forwardPort(p);
 			}
+			
+		} catch (Exception e) {
+			if (!loggedError) {			
+				log.error("Error connecting tunnel" , e);
+				loggedError = true;
+			}
+			ssh.close();
+			ret = false;
 		}
+		
+		if (ret) {
+			log.info("Tunnels connected successfully!");
+			loggedError = false;
+		}
+		
 		return ret;
 	}
 	
@@ -101,11 +133,12 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 	public void run() {
 		log.info("Thread started");
 		
+		respawn();
+		
 		while (getRunning()) {
 			if (!ssh.areTunnelsActive()) {
-				log.warn("Tunnels appear to be down... Restarting them");
 				if (!respawn()) {
-					log.warn("***Some tunnels failed to restart***");
+					log.warn("***Tunnels failed to restart***");
 				}
 			}
 			
@@ -131,13 +164,7 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 
 	@Override
 	public boolean configure(Node rootNode) {
-		
-		String user = "";
-		String password = "";
-		String host = "";
-		String keyfile = "";
-		int port = 22;
-		
+
 		NodeList elements = rootNode.getChildNodes();
 		for (int i=0; i<elements.getLength(); i++) {
 			Node element = elements.item(i);
@@ -184,13 +211,6 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 		if (portForwards.size() == 0) {
 			log.fatal("No port forwards configured.");
 			return false;
-		}
-		
-		this.configure(host, port, user, password);
-		
-		for (PortForward f : portForwards) {
-			log.info("Adding forward: "+f);
-			ssh.forwardPort(f);
 		}
 		
 		return true;
