@@ -24,7 +24,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Calendar;
 
 import org.apache.log4j.Logger;
 
@@ -57,30 +56,23 @@ public class CSVFileWriter {
 	
 	public synchronized void setFilename(String name) {
 		filename = name;
-		newFile();
+		file = null;	//recreate the file next write
 	}
 	
 	public synchronized void setHeaders(ArrayList<String> heads) {
 		headers = heads;
 	}
-	
-	private synchronized void initialize() {
-		String theFileName;
-		Calendar cal = Calendar.getInstance();
-		theFileName = String.format("%1$tY%1$tm%1$td-%1$tT", cal)+"-"+filename;
 		
-		log.debug("Initializing file: "+theFileName);
-		file = new File(theFileName);
+	private synchronized void initialize() {
+		
+		log.debug("Initializing file: "+filename);
+		file = new File(filename);
 		try {
 			file.createNewFile();
 		} catch (IOException e) {
 			log.error("Error creating file", e);
 		}
 		writeHeaders = true;
-	}
-	
-	public void newFile() {
-		initialize();	
 	}
 	
 	public synchronized boolean writeData(ArrayList<String> values) {
