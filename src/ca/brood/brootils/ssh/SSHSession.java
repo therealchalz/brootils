@@ -36,33 +36,49 @@ import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 /*
  * TODO:
- * Support keyfile auth (with and without passphrase)
+ * Support log4j logging (need to wrap com.jcraft.jsch.Logger)
  */
 
+/** This class encapsulates JSCH functionality.
+ * This class is not for remote command execution, setting up shells etc.
+ * It is intended to simplify the setup of port forwards (aka tunnels)
+ * and to also allow for SCPing files to and from a remote host.
+ * <p>
+ * See {@link TunnelKeepaliveThread} for a utility class to keep your tunnels alive.
+ * @author Charles Hache
+ *
+ */
 public class SSHSession {
 	private Logger log;
 	
 	private String username;
 	private String host;
-	private String password;
+	private String password = null;
 	private int port;
 	private JSch jsch;
-	private int timeoutSeconds;
-	private Session tunnelSession;
+	private int timeoutSeconds = 20;
+	private Session tunnelSession = null;
 	
+	/**
+	 * Creates a new {@link SSHSession}.
+	 */
 	public SSHSession() {
 		log = Logger.getLogger(SSHSession.class);
 		jsch = new JSch();
-		timeoutSeconds = 5;
-		tunnelSession = null;
 	}
 	
+	/** Check the internal SSH session to see if the tunnels are active and connected.
+	 * @return false if no tunnels are configured or if the tunnels are not connected.
+	 */
 	public boolean areTunnelsActive() {
 		if (tunnelSession == null)
 			return false;
 		return tunnelSession.isConnected();
 	}
 	
+	/**
+	 * Closes any tunnels associated with this {@link SSHSession}
+	 */
 	public synchronized void close() {
 		if (tunnelSession != null) {
 			tunnelSession.disconnect();
@@ -70,13 +86,47 @@ public class SSHSession {
 		}
 	}
 	
-	public void configure(String host, int port, String user, String password) {
+	/** Configures this {@link SSHSession}'s connection.
+	 * @param host The hostname or IP address to connect to.
+	 * @param port The port to connect to.
+	 * @param user The username to login as.
+	 */
+	public void configure(String host, int port, String user) {
 		this.username = user;
 		this.host = host;
-		this.password = password;
 		this.port = port;
 	}
 	
+	/** Assigns a password to this {@link SSHSession}.
+	 * One must either {@link #setPasswordAuth(String)} or {@link #setKeyfileAuth(String, String)} to connect to a remote machine.
+	 * If this is called multiple times, only the latest is used for the next session creation.
+	 * @param password The password to connect with.
+	 */
+	public void setPasswordAuth(String password) {
+		this.password = password;
+	}
+	
+	/** Assigns a keyfile, and optionally a passphrase, to this {@link SSHSession}
+	 * One must either {@link #setPasswordAuth(String)} or {@link #setKeyfileAuth(String, String)} to connect to a remote machine.
+	 * If the keyfile does not required a passphrase, then pass in null.
+	 * If this is called multiple times then all keys are attached to the session.
+	 * @param keyFilePath Path to the private key.
+	 * @param passphrase Passphrase for the private key, or null if the key requires no passphrase.
+	 * @throws Exception 
+	 */
+	public void setKeyfileAuth(String keyFilePath, String passphrase) throws Exception {
+		if (passphrase != null) {
+			jsch.addIdentity(keyFilePath, passphrase);
+		} else {
+			jsch.addIdentity(keyFilePath);
+		}
+	}
+	
+	/** Ensures this {@link SSHSession} is connected then attempts to add a forwarded port.
+	 * If this session hasn't already been connected to the host, then it tries to connect.
+	 * @param forward The port to forward.
+	 * @throws Exception If the port cannot be forwarded.
+	 */
 	public synchronized void forwardPort(PortForward forward) throws Exception {
 		Session ts = getTunnelSession();
 		
@@ -87,17 +137,39 @@ public class SSHSession {
 		}
 	}
 	
+	/** Ensures this {@link SSHSession} is connected then attempts to add a local port forward.
+	 * @param localPort The local port to forward.
+	 * @param remoteHost The host on the remote end to forward to.
+	 * @param remotePort The port on the remote end to forward to.
+	 * @throws Exception If the port cannot be forwarded.
+	 */
 	public void localForward(int localPort, String remoteHost, int remotePort) throws Exception {
 		forwardPort(new PortForward(localPort, remoteHost, remotePort, false));
 	}
 	
+	/** Ensures this {@link SSHSession} is connected then attempts to add a remote port forward.
+	 * @param remotePort The port on the remote end to forward from.
+	 * @param localHost The host on the local end to forward to.
+	 * @param localPort The port on the local end to forward to.
+	 * @throws Exception If the port cannot be forwarded.
+	 */
 	public void remoteForward(int remotePort, String localHost, int localPort) throws Exception {
 		forwardPort(new PortForward(localPort, localHost, remotePort, true));
 	}
 	
+	/** Attempts to connect this {@link SSHSession} and SCP a file from the remote host to the local machine.
+	 * @param remoteFile The path of the remote file to download.
+	 * @param localFile The path of the local file to save to.
+	 * @return true if the file was transferred, false otherwise.
+	 */
 	public boolean scpFileFromRemote (String remoteFile, String localFile) {
 		return scpFile(remoteFile, localFile, false);
 	}
+	/** Attempts to connect this {@link SSHSession} and SCP a file from the local machine to the remote host.
+	 * @param remoteFile The path of the remote file to save to.
+	 * @param localFile The path of the local file to upload.
+	 * @return true if the file was transferred, false otherwise.
+	 */
 	public boolean scpFileToRemote(String remoteFile, String localFile) {
 		return scpFile(remoteFile, localFile, true);
 	}
@@ -130,7 +202,8 @@ public class SSHSession {
 	
 	private Session createSession() throws Exception {
 		Session session = jsch.getSession(this.username, this.host, this.port);
-		session.setPassword(this.password);
+		if (this.password != null)
+			session.setPassword(this.password);
 		
 		session.setTimeout(timeoutSeconds*1000);
 		//TODO: review this (StrictHostKeyChecking)
@@ -295,6 +368,7 @@ public class SSHSession {
 			
     	} catch(Exception e){
     		log.error("Error SCPing file", e);
+    		ret = false;
     	} finally {
     		if (session != null)
     			session.disconnect();

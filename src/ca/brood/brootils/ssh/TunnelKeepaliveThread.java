@@ -29,6 +29,10 @@ import org.w3c.dom.NodeList;
 
 import ca.brood.brootils.xml.XMLConfigurable;
 
+/** A thread that ensures tunnels are kept alive.
+ * @author Charles Hache
+ *
+ */
 public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 	private int pollingInterval;
 	private Logger log;
@@ -41,14 +45,18 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 	
 	//Connection parameters
 	private String user = "";
-	private String password = "";
+	private String password = null;
 	private String host = "";
-	private String keyfile = "";
+	private String keyfile = null;
+	private String passphrase = null;
 	private int port = 22;
 	
+	/** Creates a new {@link TunnelKeepaliveThread}.
+	 * 
+	 */
 	public TunnelKeepaliveThread() {
 		log = Logger.getLogger(TunnelKeepaliveThread.class);
-		keepRunning = true;
+		keepRunning = false;
 		ssh = null;
 		runningLock = new Object();
 		pollingInterval = 10000;	//10 seconds
@@ -57,11 +65,12 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 		loggedError = false;
 	}
 	
-	public void configure(String host, int port, String user, String password) {
-		ssh.configure(host, port, user, password);
-		log = Logger.getLogger(TunnelKeepaliveThread.class.getName()+"("+host+":"+port+")");
-	}
-	
+	/** Adds a local port to forward.
+	 * @param localPort The local port to forward from.
+	 * @param host The remote host to forward to.
+	 * @param remotePort The remote port to forward to.
+	 * @return true if the forward was successful, false otherwise.
+	 */
 	public boolean addLocalForward(int localPort, String host, int remotePort) {
 		PortForward toAdd = new PortForward(localPort, host, remotePort, false); 
 		portForwards.add(toAdd);
@@ -74,6 +83,12 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 		return true;
 	}
 	
+	/** Adds a remote port to forward.
+	 * @param remotePort The remote port to forward from.
+	 * @param host The local host to forward to.
+	 * @param localPort The local port to forward to.
+	 * @return true if the forward was successful, false otherwise.
+	 */
 	public boolean addRemoteForward(int remotePort, String host, int localPort) {
 		PortForward toAdd = new PortForward(localPort, host, remotePort, true); 
 		try {
@@ -85,83 +100,11 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 		return true;
 	}
 	
-	public boolean getRunning() {
-		synchronized(runningLock) {
-			return keepRunning;
-		}
-	}
-	
-	public void setRunning(boolean running) {
-		synchronized(runningLock) {
-			keepRunning = running;
-		}
-	}
-	
-	private boolean respawn() {
-		boolean ret = false;
-		if (ssh != null)
-			ssh.close();
-		
-		try {
-			ssh = new SSHSession();
-			
-			ssh.configure(host, port, user, password);
-			
-			ret = true;
-			for (PortForward p : this.portForwards) {
-				ssh.forwardPort(p);
-			}
-			
-		} catch (Exception e) {
-			if (!loggedError) {			
-				log.error("Error connecting tunnel" , e);
-				loggedError = true;
-			}
-			ssh.close();
-			ret = false;
-		}
-		
-		if (ret) {
-			log.info("Tunnels connected successfully!");
-			loggedError = false;
-		}
-		
-		return ret;
-	}
-	
-	@Override
-	public void run() {
-		log.info("Thread started");
-		
-		respawn();
-		
-		while (getRunning()) {
-			if (!ssh.areTunnelsActive()) {
-				if (!respawn()) {
-					log.warn("***Tunnels failed to restart***");
-				}
-			}
-			
-			try {
-				Thread.sleep(pollingInterval);
-			} catch (InterruptedException e) { }
-		}
-		
-		ssh.close();
-		
-		log.info("Thread exiting");
-	}
-	
-	public void start() {
-		myThread.start();
-	}
-	
-	public void stop() {
-		setRunning(false);
-		myThread.interrupt();
-		myThread = new Thread(this);
-	}
-
+	/** Configures this {@link TunnelKeepaliveThread} via an XML node.
+	 * Review the DTD file for brootils to see what this is expecting.
+	 * @param rootNode The root node for this tunneler.
+	 * @return true if the XML was valid and this {@link TunnelKeepaliveThread} was configured successfully.
+	 */
 	@Override
 	public boolean configure(Node rootNode) {
 
@@ -180,6 +123,8 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 				password = element.getFirstChild().getNodeValue(); 
 			} else if ("keyfile".equalsIgnoreCase(element.getNodeName())) {
 				keyfile = element.getFirstChild().getNodeValue(); 
+			} else if ("passphrase".equalsIgnoreCase(element.getNodeName())) {
+				passphrase = element.getFirstChild().getNodeValue(); 
 			} else if ("port".equalsIgnoreCase(element.getNodeName())) {
 				try {
 					port = Integer.parseInt(element.getFirstChild().getNodeValue());
@@ -214,5 +159,139 @@ public class TunnelKeepaliveThread implements Runnable, XMLConfigurable {
 		}
 		
 		return true;
+	}
+	
+	/** Configures the remote host.
+	 * @param host The remote host.
+	 * @param port The remote port.
+	 * @param user The user for authentication.
+	 */
+	public void configure(String host, int port, String user) {
+		ssh.configure(host, port, user);
+		log = Logger.getLogger(TunnelKeepaliveThread.class.getName()+"("+host+":"+port+")");
+	}
+	
+	/** Check if this {@link TunnelKeepaliveThread} is running.
+	 * @return true if this thread is running.
+	 */
+	public boolean getRunning() {
+		synchronized(runningLock) {
+			return keepRunning;
+		}
+	}
+	
+	/** This isn't the method you're looking for.
+	 * You'll want to use the {@link #start()} method unless you actually do want to run
+	 * this in your thread.  If you use the {@link #start()} then this will start in it's own
+	 * thread.
+	 */
+	@Override
+	public void run() {
+		log.info("Thread started");
+		
+		respawn();
+		
+		while (getRunning()) {
+			if (!ssh.areTunnelsActive()) {
+				if (!respawn()) {
+					log.warn("***Tunnels failed to restart***");
+				}
+			}
+			
+			try {
+				Thread.sleep(pollingInterval);
+			} catch (InterruptedException e) { }
+		}
+		
+		ssh.close();
+		
+		log.info("Thread exiting");
+	}
+	
+	
+	/** Assigns a key file and, optionally, a passphrase to this {@link TunnelKeepaliveThread}.
+	 * One must either {@link #setPasswordAuth(String)} or {@link #setKeyfileAuth(String, String)} to connect to a remote host.
+	 * @param keyfile The path to the key file.
+	 * @param passphrase The passphrase of the keyfile, or null if none is required.
+	 */
+	public void setKeyfileAuth(String keyfile, String passphrase) {
+		this.keyfile = keyfile;
+		this.passphrase = passphrase;
+	}
+	
+	/** Assigns a password to this {@link TunnelKeepaliveThread}.
+	 * One must either {@link #setPasswordAuth(String)} or {@link #setKeyfileAuth(String, String)} to connect to a remote host.
+	 * If this is called multiple times, only the last password is used.
+	 * @param pass The password to 
+	 */
+	public void setPasswordAuth(String pass) {
+		this.password = pass;
+	}
+	
+	/** This probably isn't the function you're looking for.
+	 * Typically a {@link TunnelKeepaliveThread} will manage it's own thread so you'll 
+	 * control it via the {@link #start()} and {@link #stop()} functions.
+	 * <p>
+	 * If for some reason you need to use your own thread and just use {@link TunnelKeepaliveThread}
+	 * as a Runnable, then this function can be used to control the loop sentinel in the Runnable's
+	 * main loop.
+	 * @param running
+	 */
+	public void setRunning(boolean running) {
+		synchronized(runningLock) {
+			keepRunning = running;
+		}
+	}
+	
+	/** Start this {@link TunnelKeepaliveThread}.
+	 */
+	public void start() {
+		setRunning(true);
+		myThread.start();
+	}
+	
+	/** Stops this {@link TunnelKeepaliveThread}.
+	 * 
+	 */
+	public void stop() {
+		setRunning(false);
+		myThread.interrupt();
+		myThread = new Thread(this);
+	}
+
+	private boolean respawn() {
+		boolean ret = false;
+		if (ssh != null)
+			ssh.close();
+		
+		try {
+			ssh = new SSHSession();
+			
+			ssh.configure(host, port, user);
+			if (password != null)
+				ssh.setPasswordAuth(password);
+			if (keyfile != null)
+				ssh.setKeyfileAuth(keyfile, passphrase);
+			
+			ret = true;
+			for (PortForward p : this.portForwards) {
+				ssh.forwardPort(p);
+			}
+			
+		} catch (Exception e) {
+			if (!loggedError) {			
+				log.error("Error connecting tunnel" , e);
+				loggedError = true;
+			}
+			ssh.close();
+			ret = false;
+		}
+		
+		if (ret) {
+			log.info("Tunnels connected successfully!");
+			loggedError = false;
+		}
+		
+		return ret;
 	}
 }
