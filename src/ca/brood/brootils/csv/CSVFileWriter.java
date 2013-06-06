@@ -23,42 +23,68 @@ package ca.brood.brootils.csv;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 
 import org.apache.log4j.Logger;
 
 
+/** Simple class for writing CSV files
+ * @author Charles Hache
+ *
+ */
 public class CSVFileWriter {
 	private String filename;
 	private File file;
 	private boolean writeHeaders;
 	private Logger log;
 	private ArrayList<String> headers;
+	private byte[] newline;
 	
+	/** Creates a writer that will write to the given filename.
+	 * @param fileName The name of the CSV file.
+	 */
 	public CSVFileWriter (String fileName) {
 		log = Logger.getLogger(CSVFileWriter.class);
 		this.filename = fileName;
 		writeHeaders = true;
 		headers = new ArrayList<String>();
+		newline = System.getProperty("line.separator").getBytes();
 	}
 	
+	/** Copy constructor.
+	 * @param o Other CSV writer to copy.
+	 */
 	public CSVFileWriter(CSVFileWriter o) {
 		this(o.filename);
 		this.writeHeaders = o.writeHeaders;
 		for (String s : o.headers) {
 			this.headers.add(s);
 		}
+		newline = new byte[o.newline.length];
+		System.arraycopy(o.newline, 0, newline, 0, newline.length);
 	}
 	
+	/** Gets the filename of this writer.
+	 * @return The filename.
+	 */
 	public String getFilename() {
 		return filename;
 	}
 	
+	/** Changes the filename of this writer.
+	 * The next time data is written, the new file will be created.
+	 * Headers will be written automatically.
+	 * @param name The new filename.
+	 */
 	public synchronized void setFilename(String name) {
 		filename = name;
 		file = null;	//recreate the file next write
 	}
 	
+	/** Sets the headers for this CSV file.
+	 * @param heads An array of headers.  One element per column.
+	 */
 	public synchronized void setHeaders(ArrayList<String> heads) {
 		headers = heads;
 	}
@@ -75,6 +101,12 @@ public class CSVFileWriter {
 		writeHeaders = true;
 	}
 	
+	/** Writes data to the CSV file.
+	 * Creates the file if it doesn't exist.
+	 * Writes the headers if a new file is created.
+	 * @param values The data to write.
+	 * @return true if all went well, false otherwise.
+	 */
 	public synchronized boolean writeData(ArrayList<String> values) {
 		boolean ret = false;
 		
@@ -112,9 +144,9 @@ public class CSVFileWriter {
 						fos.write(", ".getBytes());
 					else
 						first = false;
-					fos.write(head.getBytes());
+					writeEscapedCSVData(fos, head);
 				}
-				fos.write(System.getProperty("line.separator").getBytes());
+				fos.write(newline);
 				writeHeaders = false;
 			}
 			first = true;
@@ -123,13 +155,9 @@ public class CSVFileWriter {
 					fos.write(", ".getBytes());
 				else
 					first = false;
-				if (val.contains("\"")) {
-					fos.write(("\""+val+"\"").getBytes());
-				} else {
-					fos.write(val.getBytes());
-				}
+				writeEscapedCSVData(fos, val);
 			}
-			fos.write(System.getProperty("line.separator").getBytes());
+			fos.write(newline);
 			ret = true;
 		} catch (Exception e) {
 			log.error("Failed in writing to file", e);
@@ -143,5 +171,17 @@ public class CSVFileWriter {
 			}
 		}
 		return ret;
+	}
+	private void writeEscapedCSVData(OutputStream o, String data) throws IOException {
+		//If there is a comma in the data, then we need to enclose it in double quotes.
+		//But, then if there is a double quote in there, we need to replace it with double doublequotes.
+		if (data.contains(",")) {
+			if (data.contains("\"")) {
+				data = data.replace("\"", "\"\"");
+			}
+			o.write(("\""+data+"\"").getBytes());
+		} else {
+			o.write(data.getBytes());
+		}
 	}
 }
