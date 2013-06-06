@@ -25,11 +25,22 @@ import org.w3c.dom.NodeList;
 
 import ca.brood.brootils.xml.XMLConfigurable;
 
+/** Class to describe a local or remote port forward.
+ * Used internally by the {@link TunnelKeepaliveThread} class.
+ * Can be used to send a forward to an {@link SSHSession}, although
+ * there are helper functions for local and remote forwards that wrap
+ * this functionality.
+ * @author Charles Hache
+ *
+ */
 class PortForward implements XMLConfigurable {
 	int localPort;
 	String host;
 	int remotePort;
 	boolean remoteForward;
+	/** Empty constructor.
+	 * The intent is to call {@link #configure(Node)} after instantiating an empty {@link PortForward}
+	 */
 	public PortForward() {
 		this(Integer.MAX_VALUE, "", Integer.MAX_VALUE, false);
 	}
