@@ -339,6 +339,14 @@ public class SSHSession {
 			String command;
 			if (toRemote) {
 				command="scp -t "+remoteFile;
+
+				//Make sure the remote directory exists
+				String mkdir = "mkdir -p "+new File(remoteFile).getParent();
+				
+				Channel mkdirChannel = session.openChannel("exec");
+				((ChannelExec)mkdirChannel).setCommand(mkdir);
+				((ChannelExec)mkdirChannel).setErrStream(System.out, true);
+				mkdirChannel.connect();
 			} else {
 				command="scp -f "+remoteFile;
 			}
@@ -379,6 +387,11 @@ public class SSHSession {
 		
 		if (localFile.isDirectory()) {
 			log.error("Sending whole directories is not implemented");
+			return false;
+		}
+
+		if (!localFile.canRead()) {
+			log.error("Cannot read the file: "+localFile.getAbsolutePath());
 			return false;
 		}
 		
