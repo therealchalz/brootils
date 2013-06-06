@@ -9,6 +9,8 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 
 /*
+ * Note this is not quite production ready yet, but the main
+ * function shows that it does work as intended.
  * TODO: - Look into using log4j NDC for getting more info from
  * the caller
  * - Set a max number of messages to store
@@ -35,7 +37,7 @@ public class LoggingLimiter {
 		int l1id = 0;
 		int l2id = 0;
 		
-		for (int i=0; i<100; i++) {
+		for (int i=1; i<=100; i++) {
 			l1id = LoggingLimiter.log(l1id, l1, Level.WARN, "Test warning", null);
 			if (Math.random() < 0.95) {
 				l2id = LoggingLimiter.log(l2id, l2, Level.FATAL, "FAILED!", null);
