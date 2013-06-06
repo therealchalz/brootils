@@ -20,6 +20,13 @@
  ******************************************************************************/
 package ca.brood.brootils.mail;
 
+/** Primitive mailing class that can be used statically to send email.
+ * To use it, first call the {@link #configureSmtp(String, String, String)} method to prepare it.
+ * Then messages can be sent using {@link #sendEmail(String, String, String, String)}.
+ * This class wraps the {@link Emailer} class.  For more functionality, use that class directly.
+ * @author Charles Hache
+ *
+ */
 public class StaticMailer {
 	private static Emailer emailer;
 	
@@ -31,10 +38,22 @@ public class StaticMailer {
 		
 	}
 	
+	/** Configures the SMTP settings for this static mailer.
+	 * @param host The SMTP host.
+	 * @param user The user to log in as.
+	 * @param password The user's password.
+	 */
 	public static synchronized void configureSmtp(String host, String user, String password) {
 		emailer.configureSmtp(host, user, password);
 	}
 	
+	/** Attempts to send an email.
+	 * @param to The 'to' email address.
+	 * @param from The 'from' email address.
+	 * @param subject The subject of the email.
+	 * @param body The text of the body of the email.
+	 * @return true if we were able to dispatch the message, false otherwise.
+	 */
 	public static synchronized boolean sendEmail(String to, String from, String subject, String body) {
 		return emailer.sendEmailSimple(to, from, subject, body);
 	}

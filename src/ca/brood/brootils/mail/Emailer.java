@@ -36,19 +36,71 @@ import javax.mail.internet.MimeMessage;
 
 import org.apache.log4j.Logger;
 
+/** This is a class for sending emails.
+ * @author Charles
+ *
+ */
 public class Emailer {
+	private class SMTPAuthenticator extends javax.mail.Authenticator {
+        public PasswordAuthentication getPasswordAuthentication() {
+           return new PasswordAuthentication(username, password);
+        }
+    }
 	private Properties props;
 	private Logger log;
 	private String password;
 	private String username;
 	private String smtpHost;
+	
 	private MimeMessage theMessage;
 	
+	/** Initializes an unconfigured emailer.
+	 * 
+	 */
 	public Emailer() {
 		props = new Properties();
 		log = Logger.getLogger(Emailer.class);
 	}
 	
+	/** Adds all the passed in email addresses to the 'To' field of the next email to send.
+	 * The emailer must be configured before you do this.
+	 * @param allTo Array of email addresses.
+	 */
+	public void addAllRecipients(Set<String> allTo) {
+		for (String s : allTo)
+			addRecipient(s);
+	}
+	
+	/** Adds the passed in email address to the 'To' field of the next email to send.
+	 * The emailer must be configured before you do this.
+	 * @param to The address to add.
+	 */
+	public void addRecipient(String to) {
+		addRecipient(Message.RecipientType.TO, to);
+	}
+	
+	/** Adds the passed in email address to the 'Bcc' field of the next email to send.
+	 * The emailer must be configured before you do this.
+	 * @param to The address to add.
+	 */
+	public void addRecipientBCC(String to) {
+		addRecipient(Message.RecipientType.BCC, to);
+	}
+	
+	/** Adds the passed in email address to the 'Cc' field of the next email to send.
+	 * The emailer must be configured before you do this.
+	 * @param to The address to add.
+	 */
+	public void addRecipientCC(String to) {
+		addRecipient(Message.RecipientType.CC, to);
+	}
+	
+	/** Configures this emailer's SMTP session.
+	 * The emailer must be configured before anything else can happen (adding recipients, for example).
+	 * @param host The host of the SMTP server.
+	 * @param user The SMTP username.
+	 * @param password The SMTP user's password.  Pass null or an empty string if no auth is required.
+	 */
 	public void configureSmtp(String host, String user, String password) {
 		this.smtpHost = host;
 		this.props.put("mail.smtp.host", host);
@@ -57,34 +109,32 @@ public class Emailer {
 		this.props.put("mail.smtp.user", user);
 		
 		this.password = password;
-		if (this.password.length() > 0) {
+		if (this.password != null && this.password.length() > 0) {
 			this.props.put("mail.smtp.auth", "true");
 		}
 		
 		spawnMessage();
 	}
 	
-	public void addRecipient(String to) {
-		addRecipient(Message.RecipientType.TO, to);
-	}
-	
-	public void addAllRecipients(Set<String> allTo) {
-		for (String s : allTo)
-			addRecipient(s);
-	}
-	
-	public void addRecipientBCC(String to) {
-		addRecipient(Message.RecipientType.BCC, to);
-	}
-	
+	/** Sends a text email to recipients that are already configured.
+	 * @param from The from email address.
+	 * @param subject The subject of the email.
+	 * @param body The body of the email.
+	 * @return true if the email was dispatched, false otherwise.
+	 */
 	public boolean sendEmail(String from, String subject, String body) {
 		return sendEmailContent(from, subject, body, "text/plain; charset=utf-8");		
 	}
 	
-	public boolean sendHtmlEmail(String from, String subject, String body) {
-		return sendEmailContent(from, subject, body, "text/html; charset=utf-8");
-	}
-	
+	/** Sends a text based email.
+	 * Typically the message only goes to the address in the 'to' parameter, but if you previously 
+	 * called one of the addRecipient functions and haven't sent the message yet, then it will go there too.
+	 * @param to Email address destination.
+	 * @param from The 'from' email address.
+	 * @param subject The subject of the message.
+	 * @param body The body of the message.
+	 * @return true if the message was dispatched, false otherwise.
+	 */
 	public boolean sendEmailSimple(String to, String from, String subject, String body) {
 		if (theMessage == null) {
 			log.error("Trying to send message but SMTP is not configured.");
@@ -99,11 +149,25 @@ public class Emailer {
 		return false;
 	}
 	
+	/** Similar to {@link #sendEmail(String, String, String)}, except for HTML encoded messages.
+	 * @param from The 'from' email address;
+	 * @param subject The subject of the email.
+	 * @param body The HTML body of the email.
+	 * @return true if the message was dispatched, false otherwise.
+	 */
+	public boolean sendHtmlEmail(String from, String subject, String body) {
+		return sendEmailContent(from, subject, body, "text/html; charset=utf-8");
+	}
+	
 	private void addRecipient(Message.RecipientType type, String address) {
+		if (theMessage == null) {
+			log.error("Emailer not configured - cannot add recipients yet.");
+			throw new RuntimeException("Emailer not configured");
+		}
 		try {
 			theMessage.addRecipient( type, new InternetAddress(address)	);
 		} catch (Exception e) {
-			log.error("Got exception while attempting to add receipient to email address.", e);
+			log.error("Got exception while attempting to add recipient to email.", e);
 		}
 	}
 	
@@ -142,12 +206,6 @@ public class Emailer {
 		
 		return ret;
 	}
-	
-	private class SMTPAuthenticator extends javax.mail.Authenticator {
-        public PasswordAuthentication getPasswordAuthentication() {
-           return new PasswordAuthentication(username, password);
-        }
-    }
 	
 	private void spawnMessage() {
 		Authenticator auth = new SMTPAuthenticator();
