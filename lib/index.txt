@@ -3,11 +3,6 @@ Required mail library.
 Used by:
 brootils.mail.*
 
-commons-daemon-1.0.13.jar
-Apache daemon library
-Used by:
-brootils.daemon.*
-
 jsch-0.1.49.jar:
 Java SSH implementation library.
 Used by:
