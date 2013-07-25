@@ -21,18 +21,27 @@
 //Uses code taken from various blogs and tutorials online.
 package ca.brood.brootils.mail;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Properties;
 import java.util.Set;
 
+import javax.activation.DataHandler;
+import javax.activation.DataSource;
+import javax.activation.FileDataSource;
 import javax.mail.Authenticator;
+import javax.mail.BodyPart;
 import javax.mail.Message;
 import javax.mail.MessagingException;
+import javax.mail.Multipart;
 import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
 
 import org.apache.log4j.Logger;
 
@@ -53,6 +62,7 @@ public class Emailer {
 	private String smtpHost;
 	
 	private MimeMessage theMessage;
+	private ArrayList<String> attachmentFiles;
 	
 	/** Initializes an unconfigured emailer.
 	 * 
@@ -60,6 +70,11 @@ public class Emailer {
 	public Emailer() {
 		props = new Properties();
 		log = Logger.getLogger(Emailer.class);
+		attachmentFiles = new ArrayList<String>();
+	}
+	
+	public void addAttachment(String filepath) {
+		attachmentFiles.add(filepath);
 	}
 	
 	/** Adds all the passed in email addresses to the 'To' field of the next email to send.
@@ -192,8 +207,25 @@ public class Emailer {
 		try {
 			theMessage.setFrom(new InternetAddress(from));
 			theMessage.setSubject( subject );
-			theMessage.setContent( body, mimeType );
 			theMessage.setSentDate(new Date());
+			
+			BodyPart messageBody = new MimeBodyPart();
+			messageBody.setContent(body, mimeType);
+			
+			Multipart multipart = new MimeMultipart();
+			multipart.addBodyPart(messageBody);
+			for (String file : attachmentFiles) {
+				BodyPart attachmentPart = new MimeBodyPart();
+				
+				DataSource s = new FileDataSource(file);
+				attachmentPart.setDataHandler(new DataHandler(s));
+		
+				attachmentPart.setFileName(new File(file).getName());
+				
+				multipart.addBodyPart(attachmentPart);
+			}
+			
+			theMessage.setContent(multipart);
 			
 			Transport.send( theMessage );
 			
@@ -211,5 +243,6 @@ public class Emailer {
 		Authenticator auth = new SMTPAuthenticator();
 		Session session = Session.getDefaultInstance( props, auth );
 	    theMessage = new MimeMessage( session );
+	    attachmentFiles = new ArrayList<String>();
 	}
 }
