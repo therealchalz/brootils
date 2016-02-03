@@ -43,7 +43,8 @@ import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** This is a class for sending emails.
  * @author Charles
@@ -69,7 +70,7 @@ public class Emailer {
 	 */
 	public Emailer() {
 		props = new Properties();
-		log = Logger.getLogger(Emailer.class);
+		log = LogManager.getLogger(Emailer.class);
 		attachmentFiles = new ArrayList<String>();
 	}
 	

@@ -24,7 +24,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class ThreadPerformanceMonitor {
 	//TODO:
@@ -36,7 +37,7 @@ public class ThreadPerformanceMonitor {
 	
 	static {
 		performanceData = new HashMap<Thread, ThreadPerformanceData>();
-		log = Logger.getLogger(ThreadPerformanceMonitor.class);
+		log = LogManager.getLogger(ThreadPerformanceMonitor.class);
 	}
 	
 	private static class ThreadPerformanceData {

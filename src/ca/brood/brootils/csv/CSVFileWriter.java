@@ -26,7 +26,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 
 /** Simple class for writing CSV files
@@ -45,7 +46,7 @@ public class CSVFileWriter {
 	 * @param fileName The name of the CSV file.
 	 */
 	public CSVFileWriter (String fileName) {
-		log = Logger.getLogger(CSVFileWriter.class);
+		log = LogManager.getLogger(CSVFileWriter.class);
 		this.filename = fileName;
 		writeHeaders = true;
 		headers = new ArrayList<String>();

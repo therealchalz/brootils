@@ -25,7 +25,8 @@ import java.io.File;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 
@@ -40,7 +41,7 @@ public class XMLFileLoader {
 		rootObject = rootNodeObject;
 		validateXML = true;
 		
-		log = Logger.getLogger(XMLFileLoader.class);
+		log = LogManager.getLogger(XMLFileLoader.class);
 	}
 	
 	public boolean load() throws Exception {
